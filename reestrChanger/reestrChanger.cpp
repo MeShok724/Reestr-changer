@@ -3,19 +3,29 @@
 
 #include "framework.h"
 #include "reestrChanger.h"
+#include <commctrl.h>
+
 
 #define MAX_LOADSTRING 100
+#define CMD_CHOSEPROG 1
+#define CMD_CREATERUL 2
 
 // Global Variables:
 HINSTANCE hInst;                                // current instance
+HWND hWnd;
+HWND inp_path, inp_val, choosen_prog;
 WCHAR szTitle[MAX_LOADSTRING];                  // The title bar text
-WCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
+WCHAR szWindowClass[] = L"MyClass1";            // the main window class name
+WCHAR szProgWindowClass[] = L"MyClass2";            // the class name of window with programs
 
 // Forward declarations of functions included in this code module:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
+LRESULT CALLBACK    WndProgProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
+BOOL                InitControls(HWND hwnd);
+void                OnButtonClicked(HWND hwnd);
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -29,7 +39,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     // Initialize global strings
     LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
-    LoadStringW(hInstance, IDC_REESTRCHANGER, szWindowClass, MAX_LOADSTRING);
+        // LoadStringW(hInstance, IDC_REESTRCHANGER, szWindowClass, MAX_LOADSTRING);
     MyRegisterClass(hInstance);
 
     // Perform application initialization:
@@ -37,6 +47,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     {
         return FALSE;
     }
+    InitControls(hWnd);
 
     HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_REESTRCHANGER));
 
@@ -80,6 +91,11 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wcex.lpszClassName  = szWindowClass;
     wcex.hIconSm        = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
 
+    RegisterClassExW(&wcex);
+
+    wcex.lpszClassName = szProgWindowClass;
+    wcex.lpfnWndProc = WndProgProc;
+    wcex.lpszMenuName = NULL;
     return RegisterClassExW(&wcex);
 }
 
@@ -97,7 +113,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
    hInst = hInstance; // Store instance handle in our global variable
 
-   HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
+   hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
       CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
 
    if (!hWnd)
@@ -107,8 +123,19 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
    ShowWindow(hWnd, nCmdShow);
    UpdateWindow(hWnd);
-
    return TRUE;
+}
+
+BOOL InitControls(HWND hwnd) {
+    CreateWindow(L"STATIC", L"Введите путь к ключу реестра:", WS_CHILD | WS_VISIBLE, 10, 20, 300, 20, hwnd, NULL, NULL, NULL);
+    inp_path = CreateWindow(L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER, 10, 40, 300, 20, hwnd, NULL, NULL, NULL);
+    CreateWindow(L"STATIC", L"Введите нужное значение:", WS_CHILD | WS_VISIBLE, 10, 70, 300, 20, hwnd, NULL, NULL, NULL);
+    inp_val = CreateWindow(L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER, 10, 90, 300, 20, hwnd, NULL, NULL, NULL);
+    CreateWindow(L"STATIC", L"Выбранное приложение:", WS_CHILD | WS_VISIBLE, 10, 120, 300, 20, hwnd, NULL, NULL, NULL);
+    choosen_prog = CreateWindow(L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER, 10, 140, 300, 20, hwnd, NULL, NULL, NULL);
+    CreateWindow(L"BUTTON", L"Выбрать приложение", WS_VISIBLE | WS_CHILD, 10, 170, 300, 30, hwnd, (HMENU)CMD_CHOSEPROG, NULL, NULL);
+    CreateWindow(L"BUTTON", L"Создать правило", WS_VISIBLE | WS_CHILD, 10, 210, 300, 30, hwnd, (HMENU)CMD_CREATERUL, NULL, NULL);
+    return true;
 }
 
 //
@@ -131,6 +158,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             // Parse the menu selections:
             switch (wmId)
             {
+            case CMD_CHOSEPROG:
+                OnButtonClicked(hWnd);
+                break;
+            case CMD_CREATERUL:
+                // TODO: add a creating a rule
+                break;
             case IDM_ABOUT:
                 DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
                 break;
@@ -177,4 +210,78 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         break;
     }
     return (INT_PTR)FALSE;
+}
+
+// Callback-функция для перечисления окон
+BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
+    // Получаем заголовок окна
+    wchar_t windowTitle[256];
+    GetWindowText(hwnd, windowTitle, sizeof(windowTitle) / sizeof(wchar_t));
+
+    // Проверяем, есть ли заголовок у окна (если пусто — пропускаем)
+    if (wcslen(windowTitle) > 0) {  //  && wcscmp(windowTitle, L"Default IME") != 0 && wcscmp(windowTitle, L"") != 0
+        // Добавляем заголовок в список (ListView)
+        HWND listView = (HWND)lParam;
+        LVITEM lvItem = { 0 };
+        lvItem.mask = LVIF_TEXT;
+        lvItem.pszText = windowTitle;
+        lvItem.iItem = ListView_GetItemCount(listView); // следующий индекс
+        ListView_InsertItem(listView, &lvItem); // добавляем строку
+    }
+    return TRUE; // продолжаем перечисление окон
+}
+
+// Обработчик нажатия кнопки
+void OnButtonClicked(HWND hwnd) {
+    // Создаем новое окно для отображения списка
+    HWND hwndNew = CreateWindow(szProgWindowClass, L"Список приложений",
+        WS_OVERLAPPEDWINDOW,
+        CW_USEDEFAULT, CW_USEDEFAULT, 500, 500,
+        hwnd, NULL, NULL, NULL);
+    if (hwndNew == NULL)
+        MessageBox(NULL, L"Не удалось создать окно", L"Ошибка", MB_OK | MB_ICONERROR);
+
+    // Создаем ListView для отображения списка
+    HWND listView = CreateWindow(WC_LISTVIEW, L"",
+        WS_CHILD | WS_VISIBLE | LVS_REPORT | WS_BORDER,
+        10, 10, 460, 350,
+        hwndNew, NULL, NULL, NULL);
+
+    // Настраиваем ListView для отображения колонок
+    LVCOLUMN lvCol;
+    lvCol.mask = LVCF_TEXT | LVCF_WIDTH;
+    lvCol.pszText = (LPWSTR)L"Название окна";
+    lvCol.cx = 400;
+    ListView_InsertColumn(listView, 0, &lvCol);
+
+    // Перечисляем все работающие окна
+    EnumWindows(EnumWindowsProc, (LPARAM)listView);
+
+    // Обновляем отображение окна
+    ShowWindow(hwndNew, SW_SHOW);
+}
+
+LRESULT CALLBACK WndProgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    switch (message)
+    {
+    case WM_COMMAND:
+    {
+        int wmId = LOWORD(wParam);
+        // Parse the menu selections:
+        switch (wmId)
+        {
+        
+        default:
+            return DefWindowProc(hWnd, message, wParam, lParam);
+        }
+    }
+    break;
+    case WM_DESTROY:
+        DestroyWindow(hWnd);
+        break;
+    default:
+        return DefWindowProc(hWnd, message, wParam, lParam);
+    }
+    return 0;
 }
