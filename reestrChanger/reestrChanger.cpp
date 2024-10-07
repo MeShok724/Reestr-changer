@@ -1,6 +1,3 @@
-// reestrChanger.cpp : Defines the entry point for the application.
-//
-
 #include "framework.h"
 #include "reestrChanger.h"
 #include <commctrl.h>
@@ -13,10 +10,20 @@
 // Global Variables:
 HINSTANCE hInst;                                // current instance
 HWND hWnd;
-HWND inp_path, inp_val, choosen_prog;
+HWND inp_path, inp_val, choosen_prog, lv_rules, lv_progs;
 WCHAR szTitle[MAX_LOADSTRING];                  // The title bar text
 WCHAR szWindowClass[] = L"MyClass1";            // the main window class name
 WCHAR szProgWindowClass[] = L"MyClass2";            // the class name of window with programs
+
+struct Rule {
+    WCHAR progName[256];      
+    WCHAR keyPath[512];     
+    WCHAR oldValue[512];       
+    WCHAR newValue[256];       
+    BOOL isActive;            
+};
+
+Rule rule_arr[256];
 
 // Forward declarations of functions included in this code module:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -26,6 +33,10 @@ LRESULT CALLBACK    WndProgProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 BOOL                InitControls(HWND hwnd);
 void                OnButtonClicked(HWND hwnd);
+void                AddColumnsToListView(HWND lv_rules);
+void                AddRuleToListView(HWND lv_rules, Rule rule);
+BOOL                CreateRule(HWND hWnd);
+void                GetRegistryValue(WCHAR keyPath[512], WCHAR oldValue[256]);
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -34,8 +45,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 {
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
-
-    // TODO: Place code here.
 
     // Initialize global strings
     LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -48,6 +57,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
         return FALSE;
     }
     InitControls(hWnd);
+    UpdateWindow(hWnd);
 
     HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_REESTRCHANGER));
 
@@ -66,13 +76,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     return (int) msg.wParam;
 }
 
-
-
-//
-//  FUNCTION: MyRegisterClass()
-//
-//  PURPOSE: Registers the window class.
-//
 ATOM MyRegisterClass(HINSTANCE hInstance)
 {
     WNDCLASSEXW wcex;
@@ -99,16 +102,7 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     return RegisterClassExW(&wcex);
 }
 
-//
-//   FUNCTION: InitInstance(HINSTANCE, int)
-//
-//   PURPOSE: Saves instance handle and creates main window
-//
-//   COMMENTS:
-//
-//        In this function, we save the instance handle in a global variable and
-//        create and display the main program window.
-//
+
 BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
    hInst = hInstance; // Store instance handle in our global variable
@@ -128,26 +122,26 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 BOOL InitControls(HWND hwnd) {
     CreateWindow(L"STATIC", L"Введите путь к ключу реестра:", WS_CHILD | WS_VISIBLE, 10, 20, 300, 20, hwnd, NULL, NULL, NULL);
-    inp_path = CreateWindow(L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER, 10, 40, 300, 20, hwnd, NULL, NULL, NULL);
+    inp_path = CreateWindow(L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER, 10, 40, 600, 20, hwnd, NULL, NULL, NULL);
     CreateWindow(L"STATIC", L"Введите нужное значение:", WS_CHILD | WS_VISIBLE, 10, 70, 300, 20, hwnd, NULL, NULL, NULL);
     inp_val = CreateWindow(L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER, 10, 90, 300, 20, hwnd, NULL, NULL, NULL);
     CreateWindow(L"STATIC", L"Выбранное приложение:", WS_CHILD | WS_VISIBLE, 10, 120, 300, 20, hwnd, NULL, NULL, NULL);
     choosen_prog = CreateWindow(L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER, 10, 140, 300, 20, hwnd, NULL, NULL, NULL);
     CreateWindow(L"BUTTON", L"Выбрать приложение", WS_VISIBLE | WS_CHILD, 10, 170, 300, 30, hwnd, (HMENU)CMD_CHOSEPROG, NULL, NULL);
     CreateWindow(L"BUTTON", L"Создать правило", WS_VISIBLE | WS_CHILD, 10, 210, 300, 30, hwnd, (HMENU)CMD_CREATERUL, NULL, NULL);
+
+    CreateWindow(L"STATIC", L"Список правил:", WS_CHILD | WS_VISIBLE, 700, 30, 150, 20, hwnd, NULL, NULL, NULL);
+    // ListView для отображения списка правил
+    lv_rules = CreateWindow(WC_LISTVIEW, L"",
+        WS_CHILD | WS_VISIBLE | LVS_REPORT | WS_BORDER,
+        700, 50, 500, 500,
+        hwnd, NULL, NULL, NULL);
+    ListView_SetExtendedListViewStyle(lv_rules, LVS_EX_GRIDLINES | LVS_EX_FULLROWSELECT | LVS_EX_AUTOSIZECOLUMNS);
+    AddColumnsToListView(lv_rules);
+
     return true;
 }
 
-//
-//  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
-//
-//  PURPOSE: Processes messages for the main window.
-//
-//  WM_COMMAND  - process the application menu
-//  WM_PAINT    - Paint the main window
-//  WM_DESTROY  - post a quit message and return
-//
-//
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)
@@ -155,14 +149,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_COMMAND:
         {
             int wmId = LOWORD(wParam);
-            // Parse the menu selections:
             switch (wmId)
             {
             case CMD_CHOSEPROG:
                 OnButtonClicked(hWnd);
                 break;
             case CMD_CREATERUL:
-                // TODO: add a creating a rule
+                CreateRule(hWnd);
                 break;
             case IDM_ABOUT:
                 DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
@@ -177,10 +170,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
     case WM_PAINT:
         {
-            PAINTSTRUCT ps;
-            HDC hdc = BeginPaint(hWnd, &ps);
-            // TODO: Add any drawing code that uses hdc here...
-            EndPaint(hWnd, &ps);
         }
         break;
     case WM_DESTROY:
@@ -233,29 +222,31 @@ BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
 
 // Обработчик нажатия кнопки
 void OnButtonClicked(HWND hwnd) {
-    // Создаем новое окно для отображения списка
     HWND hwndNew = CreateWindow(szProgWindowClass, L"Список приложений",
         WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT, 500, 500,
         hwnd, NULL, NULL, NULL);
-    if (hwndNew == NULL)
-        MessageBox(NULL, L"Не удалось создать окно", L"Ошибка", MB_OK | MB_ICONERROR);
 
-    // Создаем ListView для отображения списка
-    HWND listView = CreateWindow(WC_LISTVIEW, L"",
+    if (hwndNew == NULL) {
+        MessageBox(NULL, L"Не удалось создать окно", L"Ошибка", MB_OK | MB_ICONERROR);
+        return; // Прерываем выполнение функции, если окно не создано
+    }
+
+    // ListView для отображения списка
+    lv_progs = CreateWindow(WC_LISTVIEW, L"",
         WS_CHILD | WS_VISIBLE | LVS_REPORT | WS_BORDER,
         10, 10, 460, 350,
         hwndNew, NULL, NULL, NULL);
 
-    // Настраиваем ListView для отображения колонок
+    // ListView для отображения колонок
     LVCOLUMN lvCol;
     lvCol.mask = LVCF_TEXT | LVCF_WIDTH;
     lvCol.pszText = (LPWSTR)L"Название окна";
     lvCol.cx = 400;
-    ListView_InsertColumn(listView, 0, &lvCol);
+    ListView_InsertColumn(lv_progs, 0, &lvCol);
 
-    // Перечисляем все работающие окна
-    EnumWindows(EnumWindowsProc, (LPARAM)listView);
+    // Перечисление всех работающих окон
+    EnumWindows(EnumWindowsProc, (LPARAM)lv_progs);
 
     // Обновляем отображение окна
     ShowWindow(hwndNew, SW_SHOW);
@@ -268,10 +259,9 @@ LRESULT CALLBACK WndProgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
     case WM_COMMAND:
     {
         int wmId = LOWORD(wParam);
-        // Parse the menu selections:
         switch (wmId)
         {
-        
+            //TODO: processing choosing the program
         default:
             return DefWindowProc(hWnd, message, wParam, lParam);
         }
@@ -284,4 +274,165 @@ LRESULT CALLBACK WndProgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
     return 0;
+}
+
+// TODO: в другой модуль
+void AddColumnsToListView(HWND lv_rules) {
+    LVCOLUMN lvColumn;
+    lvColumn.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
+
+    // Столбец для progName
+    lvColumn.pszText = (LPWSTR)L"Program Name";
+    lvColumn.cx = 100; // Ширина столбца
+    lvColumn.iSubItem = 0;
+    ListView_InsertColumn(lv_rules, 0, &lvColumn);
+
+    // Столбец для regKeyPath
+    lvColumn.pszText = (LPWSTR)L"Registry Key Path";
+    lvColumn.cx = 150;
+    lvColumn.iSubItem = 1;
+    ListView_InsertColumn(lv_rules, 1, &lvColumn);
+
+    // Столбец для oldValue
+    lvColumn.pszText = (LPWSTR)L"Old Value";
+    lvColumn.cx = 100;
+    lvColumn.iSubItem = 2;
+    ListView_InsertColumn(lv_rules, 2, &lvColumn);
+
+    // Столбец для newValue
+    lvColumn.pszText = (LPWSTR)L"New Value";
+    lvColumn.cx = 100;
+    lvColumn.iSubItem = 3;
+    ListView_InsertColumn(lv_rules, 3, &lvColumn);
+
+    // Столбец для isActive
+    lvColumn.pszText = (LPWSTR)L"Active";
+    lvColumn.cx = 50;
+    lvColumn.iSubItem = 4;
+    ListView_InsertColumn(lv_rules, 4, &lvColumn);
+}
+
+// TODO: в другой модуль
+void AddRuleToListView(HWND lv_rules, Rule rule) {
+    LVITEM lvItem;
+    lvItem.mask = LVIF_TEXT;
+    lvItem.iItem = ListView_GetItemCount(lv_rules); // Получаем текущий индекс для новой строки
+    lvItem.iSubItem = 0;
+
+    // Добавляем progName
+    lvItem.pszText = rule.progName;
+    ListView_InsertItem(lv_rules, &lvItem);
+
+    // Добавляем regKeyPath
+    lvItem.iSubItem = 1;
+    lvItem.pszText = rule.keyPath;
+    ListView_SetItem(lv_rules, &lvItem);
+
+    // Добавляем oldValue
+    lvItem.iSubItem = 2;
+    lvItem.pszText = rule.oldValue;
+    ListView_SetItem(lv_rules, &lvItem);
+
+    // Добавляем newValue
+    lvItem.iSubItem = 3;
+    lvItem.pszText = rule.newValue;
+    ListView_SetItem(lv_rules, &lvItem);
+
+    // Добавляем isActive (преобразуем BOOL в текст)
+    lvItem.iSubItem = 4;
+    lvItem.pszText = rule.isActive ? (LPWSTR)L"Yes" : (LPWSTR)L"No";
+    ListView_SetItem(lv_rules, &lvItem);
+    UpdateWindow(hWnd);
+}
+
+BOOL CreateRule(HWND hWnd) {
+    Rule newRule;
+    GetWindowText(choosen_prog, newRule.progName, sizeof(newRule.progName) / sizeof(wchar_t));
+    GetWindowText(inp_path, newRule.keyPath, sizeof(newRule.keyPath) / sizeof(wchar_t));
+    GetWindowText(inp_val, newRule.newValue, sizeof(newRule.newValue) / sizeof(wchar_t));
+    GetRegistryValue(newRule.keyPath, newRule.oldValue);
+    newRule.isActive = TRUE;    // TODO: правильно указать isActive
+    AddRuleToListView(lv_rules, newRule);
+    return TRUE;
+}
+
+// TODO: в другой модуль
+void GetRegistryValue(WCHAR keyPath[512], WCHAR oldValue[512]) {
+    HKEY hKey;
+    WCHAR regKeyPath[512];   
+    WCHAR valueName[256];    
+    DWORD dwType = REG_SZ;   
+    DWORD dwSize = sizeof(oldValue);  
+
+    WCHAR* lastBackslash = wcsrchr(keyPath, L'\\');
+    if (lastBackslash != NULL) {
+        wcsncpy_s(regKeyPath, keyPath, lastBackslash - keyPath);
+        wcscpy_s(valueName, lastBackslash + 1);
+
+        // Открываем ключ реестра
+        if (RegOpenKeyEx(HKEY_CURRENT_USER, regKeyPath, 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+            // Получаем значение по указанному имени
+
+
+
+
+
+            
+                // Узнаем размер данных
+                DWORD dwSize = 0;
+                DWORD dwType = 0;
+                LSTATUS status = RegQueryValueEx(hKey, valueName, NULL, &dwType, NULL, &dwSize);
+                if (status == ERROR_MORE_DATA) {
+                    // Выделяем буфер под данные
+                    WCHAR* oldValue = (WCHAR*)malloc(dwSize);
+                    if (oldValue == NULL) {
+                        MessageBox(NULL, L"Ошибка выделения памяти", L"Ошибка", MB_OK | MB_ICONERROR);
+                        RegCloseKey(hKey);
+                        return;
+                    }
+                    // Читаем значение реестра в буфер
+                    status = RegQueryValueEx(hKey, valueName, NULL, &dwType, (LPBYTE)oldValue, &dwSize);
+                    if (status == ERROR_SUCCESS) {
+                        // Выводим полученное значение
+                        MessageBox(NULL, oldValue, L"Значение реестра", MB_OK);
+                    }
+                    else {
+                        // Обрабатываем ошибку
+                        WCHAR errorMessage[256];
+                        wsprintf(errorMessage, L"Ошибка при чтении реестра: %ld", status);
+                        MessageBox(NULL, errorMessage, L"Ошибка", MB_OK | MB_ICONERROR);
+                    }
+
+                    // Освобождаем память
+                    free(oldValue);
+                    return;
+                }
+           
+
+
+
+
+
+
+
+            status = RegQueryValueEx(hKey, valueName, NULL, &dwType, (LPBYTE)oldValue, &dwSize);
+            if (status != ERROR_SUCCESS) {
+                // Выводим код ошибки
+                WCHAR errorMessage[256];
+                wsprintf(errorMessage, L"Ошибка при чтении реестра: %ld", status);
+                MessageBox(NULL, errorMessage, L"Ошибка", MB_OK | MB_ICONERROR);
+            }
+            else {
+                // Успешно получено значение
+            }
+            // Закрываем ключ реестра
+            RegCloseKey(hKey);
+        }
+        else {
+            MessageBox(NULL, L"Не удалось открыть ключ реестра", L"Ошибка", MB_OK | MB_ICONERROR);
+        }
+    }
+    else {
+        MessageBox(NULL, L"Неверный формат пути", L"Ошибка", MB_OK | MB_ICONERROR);
+    }
 }
