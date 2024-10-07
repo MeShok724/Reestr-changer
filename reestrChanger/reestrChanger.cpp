@@ -252,7 +252,7 @@ void OnButtonClicked(HWND hwnd) {
     ShowWindow(hwndNew, SW_SHOW);
 }
 
-LRESULT CALLBACK WndProgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK WndProgProc(HWND hProgWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)
     {
@@ -263,15 +263,16 @@ LRESULT CALLBACK WndProgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         {
             //TODO: processing choosing the program
         default:
-            return DefWindowProc(hWnd, message, wParam, lParam);
+            return DefWindowProc(hProgWnd, message, wParam, lParam);
         }
     }
     break;
     case WM_DESTROY:
-        DestroyWindow(hWnd);
+        DestroyWindow(hProgWnd);
+        UpdateWindow(hWnd);
         break;
     default:
-        return DefWindowProc(hWnd, message, wParam, lParam);
+        return DefWindowProc(hProgWnd, message, wParam, lParam);
     }
     return 0;
 }
@@ -372,50 +373,7 @@ void GetRegistryValue(WCHAR keyPath[512], WCHAR oldValue[512]) {
         // Открываем ключ реестра
         if (RegOpenKeyEx(HKEY_CURRENT_USER, regKeyPath, 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
             // Получаем значение по указанному имени
-
-
-
-
-
-            
-                // Узнаем размер данных
-                DWORD dwSize = 0;
-                DWORD dwType = 0;
-                LSTATUS status = RegQueryValueEx(hKey, valueName, NULL, &dwType, NULL, &dwSize);
-                if (status == ERROR_MORE_DATA) {
-                    // Выделяем буфер под данные
-                    WCHAR* oldValue = (WCHAR*)malloc(dwSize);
-                    if (oldValue == NULL) {
-                        MessageBox(NULL, L"Ошибка выделения памяти", L"Ошибка", MB_OK | MB_ICONERROR);
-                        RegCloseKey(hKey);
-                        return;
-                    }
-                    // Читаем значение реестра в буфер
-                    status = RegQueryValueEx(hKey, valueName, NULL, &dwType, (LPBYTE)oldValue, &dwSize);
-                    if (status == ERROR_SUCCESS) {
-                        // Выводим полученное значение
-                        MessageBox(NULL, oldValue, L"Значение реестра", MB_OK);
-                    }
-                    else {
-                        // Обрабатываем ошибку
-                        WCHAR errorMessage[256];
-                        wsprintf(errorMessage, L"Ошибка при чтении реестра: %ld", status);
-                        MessageBox(NULL, errorMessage, L"Ошибка", MB_OK | MB_ICONERROR);
-                    }
-
-                    // Освобождаем память
-                    free(oldValue);
-                    return;
-                }
-           
-
-
-
-
-
-
-
-            status = RegQueryValueEx(hKey, valueName, NULL, &dwType, (LPBYTE)oldValue, &dwSize);
+            LSTATUS status = RegQueryValueEx(hKey, valueName, NULL, &dwType, (LPBYTE)oldValue, &dwSize);
             if (status != ERROR_SUCCESS) {
                 // Выводим код ошибки
                 WCHAR errorMessage[256];
