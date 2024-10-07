@@ -1,31 +1,35 @@
 #include "framework.h"
 #include "reestrChanger.h"
 #include <commctrl.h>
+#include <vector>
 
 
 #define MAX_LOADSTRING 100
 #define CMD_CHOSEPROG 1
 #define CMD_CREATERUL 2
 
-// Global Variables:
-HINSTANCE hInst;                                // current instance
-HWND hWnd;
-HWND inp_path, inp_val, choosen_prog, lv_rules, lv_progs;
-WCHAR szTitle[MAX_LOADSTRING];                  // The title bar text
-WCHAR szWindowClass[] = L"MyClass1";            // the main window class name
-WCHAR szProgWindowClass[] = L"MyClass2";            // the class name of window with programs
-
+// Types
 struct Rule {
-    WCHAR progName[256];      
-    WCHAR keyPath[512];     
-    WCHAR oldValue[512];       
-    WCHAR newValue[256];       
-    BOOL isActive;            
+    WCHAR progName[256];
+    HKEY keyFolder;
+    WCHAR keyPath[512];
+    WCHAR valName[100];
+    WCHAR oldValue[512];
+    WCHAR newValue[512];
+    BOOL isActive;
 };
 
-Rule rule_arr[256];
+// Global Variables:
+HINSTANCE hInst;                                
+HWND hWnd;
+HWND inp_folder, inp_valName, inp_path, inp_val, choosen_prog;
+HWND lv_rules, lv_progs;
+WCHAR szTitle[MAX_LOADSTRING];                  
+WCHAR szWindowClass[] = L"MyClass1";            
+WCHAR szProgWindowClass[] = L"MyClass2";            
+std::vector<Rule> rule_vec;
 
-// Forward declarations of functions included in this code module:
+// Forward declarations of functions
 ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
@@ -36,7 +40,7 @@ void                OnButtonClicked(HWND hwnd);
 void                AddColumnsToListView(HWND lv_rules);
 void                AddRuleToListView(HWND lv_rules, Rule rule);
 BOOL                CreateRule(HWND hWnd);
-void                GetRegistryValue(WCHAR keyPath[512], WCHAR oldValue[256]);
+void                GetRegistryValue(Rule *rule);
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -48,7 +52,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     // Initialize global strings
     LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
-        // LoadStringW(hInstance, IDC_REESTRCHANGER, szWindowClass, MAX_LOADSTRING);
     MyRegisterClass(hInstance);
 
     // Perform application initialization:
@@ -81,7 +84,6 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     WNDCLASSEXW wcex;
 
     wcex.cbSize = sizeof(WNDCLASSEX);
-
     wcex.style          = CS_HREDRAW | CS_VREDRAW;
     wcex.lpfnWndProc    = WndProc;
     wcex.cbClsExtra     = 0;
@@ -99,6 +101,7 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wcex.lpszClassName = szProgWindowClass;
     wcex.lpfnWndProc = WndProgProc;
     wcex.lpszMenuName = NULL;
+
     return RegisterClassExW(&wcex);
 }
 
@@ -121,23 +124,34 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 }
 
 BOOL InitControls(HWND hwnd) {
-    CreateWindow(L"STATIC", L"Введите путь к ключу реестра:", WS_CHILD | WS_VISIBLE, 10, 20, 300, 20, hwnd, NULL, NULL, NULL);
-    inp_path = CreateWindow(L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER, 10, 40, 600, 20, hwnd, NULL, NULL, NULL);
-    CreateWindow(L"STATIC", L"Введите нужное значение:", WS_CHILD | WS_VISIBLE, 10, 70, 300, 20, hwnd, NULL, NULL, NULL);
-    inp_val = CreateWindow(L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER, 10, 90, 300, 20, hwnd, NULL, NULL, NULL);
-    CreateWindow(L"STATIC", L"Выбранное приложение:", WS_CHILD | WS_VISIBLE, 10, 120, 300, 20, hwnd, NULL, NULL, NULL);
-    choosen_prog = CreateWindow(L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER, 10, 140, 300, 20, hwnd, NULL, NULL, NULL);
-    CreateWindow(L"BUTTON", L"Выбрать приложение", WS_VISIBLE | WS_CHILD, 10, 170, 300, 30, hwnd, (HMENU)CMD_CHOSEPROG, NULL, NULL);
-    CreateWindow(L"BUTTON", L"Создать правило", WS_VISIBLE | WS_CHILD, 10, 210, 300, 30, hwnd, (HMENU)CMD_CREATERUL, NULL, NULL);
+    CreateWindow(L"STATIC", L"Выберите раздел реестра:", WS_CHILD | WS_VISIBLE, 10, 20, 300, 20, hwnd, NULL, NULL, NULL);
+    inp_folder = CreateWindow(L"COMBOBOX", NULL, WS_VISIBLE | WS_CHILD | CBS_DROPDOWNLIST, 10, 40, 300, 500, hwnd, NULL, NULL, NULL);
+    CreateWindow(L"STATIC", L"Введите путь к ключу реестра:", WS_CHILD | WS_VISIBLE, 10, 70, 300, 20, hwnd, NULL, NULL, NULL);
+    inp_path = CreateWindow(L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER, 10, 90, 300, 20, hwnd, NULL, NULL, NULL);
+    CreateWindow(L"STATIC", L"Введите название величины:", WS_CHILD | WS_VISIBLE, 10, 120, 300, 20, hwnd, NULL, NULL, NULL);
+    inp_valName = CreateWindow(L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER, 10, 140, 300, 20, hwnd, NULL, NULL, NULL);
+    CreateWindow(L"STATIC", L"Введите нужное значение:", WS_CHILD | WS_VISIBLE, 10, 170, 300, 20, hwnd, NULL, NULL, NULL);
+    inp_val = CreateWindow(L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER, 10, 190, 300, 20, hwnd, NULL, NULL, NULL);
+    CreateWindow(L"STATIC", L"Выбранное приложение:", WS_CHILD | WS_VISIBLE, 10, 220, 300, 20, hwnd, NULL, NULL, NULL);
+    choosen_prog = CreateWindow(L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER, 10, 240, 300, 20, hwnd, NULL, NULL, NULL);
+    CreateWindow(L"BUTTON", L"Выбрать приложение", WS_VISIBLE | WS_CHILD, 10, 270, 300, 30, hwnd, (HMENU)CMD_CHOSEPROG, NULL, NULL);
+    CreateWindow(L"BUTTON", L"Создать правило", WS_VISIBLE | WS_CHILD, 10, 310, 300, 30, hwnd, (HMENU)CMD_CREATERUL, NULL, NULL);
 
-    CreateWindow(L"STATIC", L"Список правил:", WS_CHILD | WS_VISIBLE, 700, 30, 150, 20, hwnd, NULL, NULL, NULL);
+    CreateWindow(L"STATIC", L"Список правил:", WS_CHILD | WS_VISIBLE, 400, 20, 150, 20, hwnd, NULL, NULL, NULL);
     // ListView для отображения списка правил
     lv_rules = CreateWindow(WC_LISTVIEW, L"",
         WS_CHILD | WS_VISIBLE | LVS_REPORT | WS_BORDER,
-        700, 50, 500, 500,
+        400, 40, 800, 500,
         hwnd, NULL, NULL, NULL);
     ListView_SetExtendedListViewStyle(lv_rules, LVS_EX_GRIDLINES | LVS_EX_FULLROWSELECT | LVS_EX_AUTOSIZECOLUMNS);
     AddColumnsToListView(lv_rules);
+
+    SendMessage(inp_folder, CB_ADDSTRING, 0, (LPARAM)L"HKEY_CURRENT_USER");
+    SendMessage(inp_folder, CB_ADDSTRING, 0, (LPARAM)L"HKEY_LOCAL_MACHINE");
+    SendMessage(inp_folder, CB_ADDSTRING, 0, (LPARAM)L"HKEY_CLASSES_ROOT");
+    SendMessage(inp_folder, CB_ADDSTRING, 0, (LPARAM)L"HKEY_USERS");
+    SendMessage(inp_folder, CB_ADDSTRING, 0, (LPARAM)L"HKEY_CURRENT_CONFIG");
+    SendMessage(inp_folder, CB_SETCURSEL, 0, 0);
 
     return true;
 }
@@ -282,115 +296,138 @@ void AddColumnsToListView(HWND lv_rules) {
     LVCOLUMN lvColumn;
     lvColumn.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
 
-    // Столбец для progName
-    lvColumn.pszText = (LPWSTR)L"Program Name";
-    lvColumn.cx = 100; // Ширина столбца
+    lvColumn.pszText = (LPWSTR)L"Название программы";
+    lvColumn.cx = 100;
     lvColumn.iSubItem = 0;
     ListView_InsertColumn(lv_rules, 0, &lvColumn);
 
-    // Столбец для regKeyPath
-    lvColumn.pszText = (LPWSTR)L"Registry Key Path";
-    lvColumn.cx = 150;
+    lvColumn.pszText = (LPWSTR)L"Раздел реестра";
     lvColumn.iSubItem = 1;
     ListView_InsertColumn(lv_rules, 1, &lvColumn);
 
-    // Столбец для oldValue
-    lvColumn.pszText = (LPWSTR)L"Old Value";
-    lvColumn.cx = 100;
+    lvColumn.pszText = (LPWSTR)L"Путь";
+    lvColumn.cx = 150;
     lvColumn.iSubItem = 2;
     ListView_InsertColumn(lv_rules, 2, &lvColumn);
 
-    // Столбец для newValue
-    lvColumn.pszText = (LPWSTR)L"New Value";
+    lvColumn.pszText = (LPWSTR)L"Название величины";
     lvColumn.cx = 100;
     lvColumn.iSubItem = 3;
     ListView_InsertColumn(lv_rules, 3, &lvColumn);
 
-    // Столбец для isActive
-    lvColumn.pszText = (LPWSTR)L"Active";
-    lvColumn.cx = 50;
+    lvColumn.pszText = (LPWSTR)L"Новое значение";
     lvColumn.iSubItem = 4;
     ListView_InsertColumn(lv_rules, 4, &lvColumn);
+
+    lvColumn.pszText = (LPWSTR)L"Старое значение";
+    lvColumn.iSubItem = 5;
+    ListView_InsertColumn(lv_rules, 5, &lvColumn);
+
+    lvColumn.pszText = (LPWSTR)L"Активно";
+    lvColumn.iSubItem = 6;
+    lvColumn.cx = 50;
+    ListView_InsertColumn(lv_rules, 6, &lvColumn);
 }
+
 
 // TODO: в другой модуль
 void AddRuleToListView(HWND lv_rules, Rule rule) {
     LVITEM lvItem;
     lvItem.mask = LVIF_TEXT;
     lvItem.iItem = ListView_GetItemCount(lv_rules); // Получаем текущий индекс для новой строки
-    lvItem.iSubItem = 0;
 
-    // Добавляем progName
+    lvItem.iSubItem = 0;
     lvItem.pszText = rule.progName;
     ListView_InsertItem(lv_rules, &lvItem);
 
-    // Добавляем regKeyPath
     lvItem.iSubItem = 1;
+    WCHAR hKeyStr[64];
+    if (rule.keyFolder == HKEY_CLASSES_ROOT) {
+        wcscpy_s(hKeyStr, L"HKEY_CLASSES_ROOT");
+    }
+    else if (rule.keyFolder == HKEY_CURRENT_USER) {
+        wcscpy_s(hKeyStr, L"HKEY_CURRENT_USER");
+    }
+    else if (rule.keyFolder == HKEY_LOCAL_MACHINE) {
+        wcscpy_s(hKeyStr, L"HKEY_LOCAL_MACHINE");
+    }
+    else if (rule.keyFolder == HKEY_USERS) {
+        wcscpy_s(hKeyStr, L"HKEY_USERS");
+    }
+    else {
+        wcscpy_s(hKeyStr, L"UNKNOWN_KEY");
+    }
+    lvItem.pszText = hKeyStr;
+    ListView_SetItem(lv_rules, &lvItem);
+
+    lvItem.iSubItem = 2;
     lvItem.pszText = rule.keyPath;
     ListView_SetItem(lv_rules, &lvItem);
 
-    // Добавляем oldValue
-    lvItem.iSubItem = 2;
-    lvItem.pszText = rule.oldValue;
+    lvItem.iSubItem = 3;
+    lvItem.pszText = rule.valName;
     ListView_SetItem(lv_rules, &lvItem);
 
-    // Добавляем newValue
-    lvItem.iSubItem = 3;
+    lvItem.iSubItem = 4;
     lvItem.pszText = rule.newValue;
     ListView_SetItem(lv_rules, &lvItem);
 
-    // Добавляем isActive (преобразуем BOOL в текст)
-    lvItem.iSubItem = 4;
-    lvItem.pszText = rule.isActive ? (LPWSTR)L"Yes" : (LPWSTR)L"No";
+    lvItem.iSubItem = 5;
+    lvItem.pszText = rule.oldValue;
     ListView_SetItem(lv_rules, &lvItem);
+
+    lvItem.iSubItem = 6;
+    lvItem.pszText = rule.isActive ? (LPWSTR)L"Да" : (LPWSTR)L"Нет";
+    ListView_SetItem(lv_rules, &lvItem);
+
     UpdateWindow(hWnd);
+}
+
+HKEY GetRootKey() {
+    int idx = SendMessage(inp_folder, CB_GETCURSEL, 0, 0);
+    switch (idx) {
+        case 0: return HKEY_CURRENT_USER;
+        case 1: return HKEY_LOCAL_MACHINE;
+        case 2: return HKEY_CLASSES_ROOT;
+        case 3: return HKEY_USERS;
+        case 4: return HKEY_CURRENT_CONFIG;
+    }
 }
 
 BOOL CreateRule(HWND hWnd) {
     Rule newRule;
+    newRule.keyFolder = GetRootKey();
     GetWindowText(choosen_prog, newRule.progName, sizeof(newRule.progName) / sizeof(wchar_t));
     GetWindowText(inp_path, newRule.keyPath, sizeof(newRule.keyPath) / sizeof(wchar_t));
     GetWindowText(inp_val, newRule.newValue, sizeof(newRule.newValue) / sizeof(wchar_t));
-    GetRegistryValue(newRule.keyPath, newRule.oldValue);
+    GetWindowText(inp_valName, newRule.valName, sizeof(newRule.valName) / sizeof(wchar_t));
+    GetRegistryValue(&newRule);
     newRule.isActive = TRUE;    // TODO: правильно указать isActive
     AddRuleToListView(lv_rules, newRule);
+    rule_vec.push_back(newRule);
     return TRUE;
 }
 
 // TODO: в другой модуль
-void GetRegistryValue(WCHAR keyPath[512], WCHAR oldValue[512]) {
-    HKEY hKey;
-    WCHAR regKeyPath[512];   
-    WCHAR valueName[256];    
+void GetRegistryValue(Rule *rule) {
+    HKEY hKey; 
     DWORD dwType = REG_SZ;   
-    DWORD dwSize = sizeof(oldValue);  
+    DWORD dwSize = sizeof(rule->oldValue);  
 
-    WCHAR* lastBackslash = wcsrchr(keyPath, L'\\');
-    if (lastBackslash != NULL) {
-        wcsncpy_s(regKeyPath, keyPath, lastBackslash - keyPath);
-        wcscpy_s(valueName, lastBackslash + 1);
-
-        // Открываем ключ реестра
-        if (RegOpenKeyEx(HKEY_CURRENT_USER, regKeyPath, 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
-            // Получаем значение по указанному имени
-            LSTATUS status = RegQueryValueEx(hKey, valueName, NULL, &dwType, (LPBYTE)oldValue, &dwSize);
-            if (status != ERROR_SUCCESS) {
-                // Выводим код ошибки
-                WCHAR errorMessage[256];
-                wsprintf(errorMessage, L"Ошибка при чтении реестра: %ld", status);
-                MessageBox(NULL, errorMessage, L"Ошибка", MB_OK | MB_ICONERROR);
-            }
-            else {
-                // Успешно получено значение
-            }
-            // Закрываем ключ реестра
-            RegCloseKey(hKey);
+    // Открываем ключ реестра
+    if (RegOpenKeyEx(rule->keyFolder, rule->keyPath, 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+        // Получаем значение по указанному имени
+        LSTATUS status = RegQueryValueEx(hKey, rule->valName, NULL, &dwType, (LPBYTE)rule->oldValue, &dwSize);
+        if (status != ERROR_SUCCESS) {
+            // Выводим код ошибки
+            WCHAR errorMessage[256];
+            wsprintf(errorMessage, L"Ошибка при чтении реестра: %ld", status);
+            MessageBox(hWnd, errorMessage, L"Ошибка", MB_OK | MB_ICONERROR);
         }
-        else {
-            MessageBox(NULL, L"Не удалось открыть ключ реестра", L"Ошибка", MB_OK | MB_ICONERROR);
-        }
+        // Закрываем ключ реестра
+        RegCloseKey(hKey);
     }
     else {
-        MessageBox(NULL, L"Неверный формат пути", L"Ошибка", MB_OK | MB_ICONERROR);
+        MessageBox(hWnd, L"Не удалось открыть ключ реестра", L"Ошибка", MB_OK | MB_ICONERROR);
     }
 }
