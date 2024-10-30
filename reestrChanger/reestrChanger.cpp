@@ -7,6 +7,7 @@
 #define MAX_LOADSTRING 100
 #define CMD_CHOSEPROG 1
 #define CMD_CREATERUL 2
+#define CMD_CHECK_WINNAME 3
 
 // Types
 struct Rule {
@@ -14,6 +15,7 @@ struct Rule {
     HKEY keyFolder;
     WCHAR keyPath[512];
     WCHAR valName[100];
+    BYTE typeCode;
     WCHAR oldValue[512];
     WCHAR newValue[512];
     BOOL isActive;
@@ -28,6 +30,7 @@ WCHAR szTitle[MAX_LOADSTRING];
 WCHAR szWindowClass[] = L"MyClass1";            
 WCHAR szProgWindowClass[] = L"MyClass2";            
 std::vector<Rule> rule_vec;
+WCHAR selectedWinName[256];
 
 // Forward declarations of functions
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -40,7 +43,7 @@ void                OnButtonClicked(HWND hwnd);
 void                AddColumnsToListView(HWND lv_rules);
 void                AddRuleToListView(HWND lv_rules, Rule rule);
 BOOL                CreateRule(HWND hWnd);
-void                GetRegistryValue(Rule *rule);
+BOOL                GetRegistryValue(Rule *rule);
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -156,6 +159,11 @@ BOOL InitControls(HWND hwnd) {
     return true;
 }
 
+void CheckWinName() {
+    if (selectedWinName != NULL)
+        SetWindowText(choosen_prog, selectedWinName);
+}
+
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)
@@ -169,7 +177,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 OnButtonClicked(hWnd);
                 break;
             case CMD_CREATERUL:
-                CreateRule(hWnd);
+                if (!CreateRule(hWnd))
+                    //TODO: Обработать ошибку создания правила                   
+                break;
+            case CMD_CHECK_WINNAME:
+                CheckWinName();
                 break;
             case IDM_ABOUT:
                 DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
@@ -234,7 +246,26 @@ BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
     return TRUE; // продолжаем перечисление окон
 }
 
-// Обработчик нажатия кнопки
+// Обработчик нажатия кнопки выбора из списка приложений
+bool ReadChosenName(HWND hwnd) {
+    int selectedIndex = ListView_GetNextItem(lv_progs, -1, LVNI_SELECTED);
+    if (selectedIndex != -1) {
+        // Элемент выбран, получаем его текст
+        LVITEM lvItem;
+        lvItem.iSubItem = 0;
+        lvItem.cchTextMax = 256;
+        lvItem.pszText = selectedWinName;
+        lvItem.iItem = selectedIndex;
+        lvItem.mask = LVIF_TEXT;
+        ListView_GetItem(lv_progs, &lvItem);
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
+// Обработчик нажатия кнопки выбора приложения
 void OnButtonClicked(HWND hwnd) {
     HWND hwndNew = CreateWindow(szProgWindowClass, L"Список приложений",
         WS_OVERLAPPEDWINDOW,
@@ -242,7 +273,6 @@ void OnButtonClicked(HWND hwnd) {
         hwnd, NULL, NULL, NULL);
 
     if (hwndNew == NULL) {
-        MessageBox(NULL, L"Не удалось создать окно", L"Ошибка", MB_OK | MB_ICONERROR);
         return; // Прерываем выполнение функции, если окно не создано
     }
 
@@ -252,12 +282,15 @@ void OnButtonClicked(HWND hwnd) {
         10, 10, 460, 350,
         hwndNew, NULL, NULL, NULL);
 
-    // ListView для отображения колонок
+    // Столбец с названиями окон
     LVCOLUMN lvCol;
     lvCol.mask = LVCF_TEXT | LVCF_WIDTH;
     lvCol.pszText = (LPWSTR)L"Название окна";
     lvCol.cx = 400;
     ListView_InsertColumn(lv_progs, 0, &lvCol);
+
+    // Кнопка выбора окна
+    CreateWindow(L"BUTTON", L"Выбрать", WS_VISIBLE | WS_CHILD, 20, 380, 70, 30, hwndNew, (HMENU)CMD_CHOSEPROG, NULL, NULL);
 
     // Перечисление всех работающих окон
     EnumWindows(EnumWindowsProc, (LPARAM)lv_progs);
@@ -275,16 +308,33 @@ LRESULT CALLBACK WndProgProc(HWND hProgWnd, UINT message, WPARAM wParam, LPARAM 
         int wmId = LOWORD(wParam);
         switch (wmId)
         {
-            //TODO: processing choosing the program
+        case CMD_CHOSEPROG:
+            if (ReadChosenName(hProgWnd))
+                SendMessage(hProgWnd, WM_CLOSE, NULL, NULL);
+            break;
         default:
             return DefWindowProc(hProgWnd, message, wParam, lParam);
         }
     }
     break;
-    case WM_DESTROY:
+    case WM_NOTIFY: 
+    {
+        LPNMITEMACTIVATE lpnmitem = (LPNMITEMACTIVATE)lParam;
+        if (lpnmitem->hdr.hwndFrom == lv_progs && lpnmitem->hdr.code == NM_DBLCLK)
+            SendMessage(hProgWnd, WM_COMMAND, CMD_CHOSEPROG, NULL);
+    }
+    break;
+    case WM_CLOSE:
+    {
+        SendMessage(hWnd, WM_COMMAND, CMD_CHECK_WINNAME, NULL);
+        SendMessage(hProgWnd, WM_DESTROY, NULL, NULL);
+    }
+    break;
+    case WM_DESTROY: {
         DestroyWindow(hProgWnd);
         UpdateWindow(hWnd);
-        break;
+    }
+    break;
     default:
         return DefWindowProc(hProgWnd, message, wParam, lParam);
     }
@@ -315,18 +365,22 @@ void AddColumnsToListView(HWND lv_rules) {
     lvColumn.iSubItem = 3;
     ListView_InsertColumn(lv_rules, 3, &lvColumn);
 
-    lvColumn.pszText = (LPWSTR)L"Новое значение";
+    lvColumn.pszText = (LPWSTR)L"Тип значения";
     lvColumn.iSubItem = 4;
     ListView_InsertColumn(lv_rules, 4, &lvColumn);
 
-    lvColumn.pszText = (LPWSTR)L"Старое значение";
+    lvColumn.pszText = (LPWSTR)L"Новое значение";
     lvColumn.iSubItem = 5;
     ListView_InsertColumn(lv_rules, 5, &lvColumn);
 
-    lvColumn.pszText = (LPWSTR)L"Активно";
+    lvColumn.pszText = (LPWSTR)L"Старое значение";
     lvColumn.iSubItem = 6;
-    lvColumn.cx = 50;
     ListView_InsertColumn(lv_rules, 6, &lvColumn);
+
+    lvColumn.pszText = (LPWSTR)L"Активно";
+    lvColumn.iSubItem = 7;
+    lvColumn.cx = 50;
+    ListView_InsertColumn(lv_rules, 7, &lvColumn);
 }
 
 
@@ -368,15 +422,17 @@ void AddRuleToListView(HWND lv_rules, Rule rule) {
     lvItem.pszText = rule.valName;
     ListView_SetItem(lv_rules, &lvItem);
 
-    lvItem.iSubItem = 4;
+    // TODO: вывести тип
+
+    lvItem.iSubItem = 5;
     lvItem.pszText = rule.newValue;
     ListView_SetItem(lv_rules, &lvItem);
 
-    lvItem.iSubItem = 5;
+    lvItem.iSubItem = 6;
     lvItem.pszText = rule.oldValue;
     ListView_SetItem(lv_rules, &lvItem);
 
-    lvItem.iSubItem = 6;
+    lvItem.iSubItem = 7;
     lvItem.pszText = rule.isActive ? (LPWSTR)L"Да" : (LPWSTR)L"Нет";
     ListView_SetItem(lv_rules, &lvItem);
 
@@ -399,9 +455,11 @@ BOOL CreateRule(HWND hWnd) {
     newRule.keyFolder = GetRootKey();
     GetWindowText(choosen_prog, newRule.progName, sizeof(newRule.progName) / sizeof(wchar_t));
     GetWindowText(inp_path, newRule.keyPath, sizeof(newRule.keyPath) / sizeof(wchar_t));
+    // TODO: сделать распознавание типа данных
     GetWindowText(inp_val, newRule.newValue, sizeof(newRule.newValue) / sizeof(wchar_t));
     GetWindowText(inp_valName, newRule.valName, sizeof(newRule.valName) / sizeof(wchar_t));
-    GetRegistryValue(&newRule);
+    if (!GetRegistryValue(&newRule))
+        return FALSE;
     newRule.isActive = TRUE;    // TODO: правильно указать isActive
     AddRuleToListView(lv_rules, newRule);
     rule_vec.push_back(newRule);
@@ -409,8 +467,9 @@ BOOL CreateRule(HWND hWnd) {
 }
 
 // TODO: в другой модуль
-void GetRegistryValue(Rule *rule) {
+BOOL GetRegistryValue(Rule *rule) {
     HKEY hKey; 
+    // TODO: правильно обработать тип
     DWORD dwType = REG_SZ;   
     DWORD dwSize = sizeof(rule->oldValue);  
 
@@ -419,15 +478,13 @@ void GetRegistryValue(Rule *rule) {
         // Получаем значение по указанному имени
         LSTATUS status = RegQueryValueEx(hKey, rule->valName, NULL, &dwType, (LPBYTE)rule->oldValue, &dwSize);
         if (status != ERROR_SUCCESS) {
-            // Выводим код ошибки
-            WCHAR errorMessage[256];
-            wsprintf(errorMessage, L"Ошибка при чтении реестра: %ld", status);
-            MessageBox(hWnd, errorMessage, L"Ошибка", MB_OK | MB_ICONERROR);
+            return FALSE;
         }
         // Закрываем ключ реестра
         RegCloseKey(hKey);
+        return TRUE;
     }
     else {
-        MessageBox(hWnd, L"Не удалось открыть ключ реестра", L"Ошибка", MB_OK | MB_ICONERROR);
+        return FALSE;
     }
 }
