@@ -128,13 +128,26 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="Defines.h" />
     <ClInclude Include="framework.h" />
-    <ClInclude Include="reestrChanger.h" />
+    <ClInclude Include="mainControls.h" />
+    <ClInclude Include="procChooseControls.h" />
+    <ClInclude Include="procChooseWindowLogic.h" />
+    <ClInclude Include="procTable.h" />
+    <ClInclude Include="Rule.h" />
+    <ClInclude Include="ruleTable.h" />
+    <ClInclude Include="windowsLogic.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="reestrChanger.cpp" />
+    <ClCompile Include="mainControls.cpp" />
+    <ClCompile Include="procChooseControls.cpp" />
+    <ClCompile Include="procChooseWindowLogic.cpp" />
+    <ClCompile Include="procTable.cpp" />
+    <ClCompile Include="windowsLogic.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="ruleTable.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="reestrChanger.rc" />

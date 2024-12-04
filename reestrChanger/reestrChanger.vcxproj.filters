@@ -13,24 +13,78 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Header Files\Other">
+      <UniqueIdentifier>{92126847-f9f3-4425-bdc9-f8a90ec7f14d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\MainWindow">
+      <UniqueIdentifier>{e18420ff-3aae-4218-96e6-0a0f4ba959ce}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ProcChooseWindow">
+      <UniqueIdentifier>{169e576f-4c7f-4dbc-9e21-fe65e42d63b6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\MainWindow">
+      <UniqueIdentifier>{cc3bb350-3607-43c3-9a41-4c70a2c27be9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\ProcChooseWindow">
+      <UniqueIdentifier>{4f0e8b26-2257-41c1-968a-1308c0313f95}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="targetver.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Other</Filter>
     </ClInclude>
     <ClInclude Include="Resource.h">
+      <Filter>Header Files\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="targetver.h">
+      <Filter>Header Files\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="ruleTable.h">
+      <Filter>Header Files\MainWindow</Filter>
+    </ClInclude>
+    <ClInclude Include="windowsLogic.h">
+      <Filter>Header Files\MainWindow</Filter>
+    </ClInclude>
+    <ClInclude Include="procChooseWindowLogic.h">
+      <Filter>Header Files\ProcChooseWindow</Filter>
+    </ClInclude>
+    <ClInclude Include="procTable.h">
+      <Filter>Header Files\ProcChooseWindow</Filter>
+    </ClInclude>
+    <ClInclude Include="Rule.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="reestrChanger.h">
+    <ClInclude Include="Defines.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="procChooseControls.h">
+      <Filter>Header Files\ProcChooseWindow</Filter>
+    </ClInclude>
+    <ClInclude Include="mainControls.h">
+      <Filter>Header Files\MainWindow</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="reestrChanger.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="main.cpp">
+      <Filter>Source Files\MainWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="ruleTable.cpp">
+      <Filter>Source Files\MainWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="windowsLogic.cpp">
+      <Filter>Source Files\MainWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="procChooseWindowLogic.cpp">
+      <Filter>Source Files\ProcChooseWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="procTable.cpp">
+      <Filter>Source Files\ProcChooseWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="procChooseControls.cpp">
+      <Filter>Source Files\ProcChooseWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="mainControls.cpp">
+      <Filter>Source Files\MainWindow</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

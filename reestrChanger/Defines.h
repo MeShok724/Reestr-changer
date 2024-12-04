@@ -1,0 +1,7 @@
+#pragma once
+
+#define CMD_CHOSEPROG 1
+#define CMD_CREATERUL 2
+#define CMD_CHECKPROGNAME 3
+#define CMD_STARTTRACKING 4
+#define CMD_STOPTRACKING 5
