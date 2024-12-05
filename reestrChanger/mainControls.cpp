@@ -2,9 +2,11 @@
 #include "Resource.h"
 
 #include "ruleTable.h"
-#include "Rule.h"
 
 #include <vector>
+
+// Function declarations
+BOOL GetRegistryValueAndType(Rule* rule);
 
 // Обновление выбранного приложения
 void CheckWinName(WCHAR selectedWinName[], HWND choosenProg) {
@@ -43,9 +45,9 @@ HKEY GetRootKey(HWND inpFolder) {
     }
 }
 
-BOOL CreateRule(HWND hWnd, HWND choosenProg, HWND inpPath, HWND inpVal, HWND inpValName, HWND lvRules, std::vector<Rule> ruleVec) {
+BOOL CreateRule(HWND hWnd, HWND choosenProg, HWND inpFolder, HWND inpPath, HWND inpVal, HWND inpValName) {
     Rule newRule;
-    newRule.keyFolder = GetRootKey();
+    newRule.keyFolder = GetRootKey(inpFolder);
     //TODO: правильно считать введенное значение опираясь на тип
     GetWindowText(choosenProg, newRule.progName, sizeof(newRule.progName) / sizeof(wchar_t));
     GetWindowText(inpPath, newRule.keyPath, sizeof(newRule.keyPath) / sizeof(wchar_t));
@@ -59,7 +61,6 @@ BOOL CreateRule(HWND hWnd, HWND choosenProg, HWND inpPath, HWND inpVal, HWND inp
     return TRUE;
 }
 
-// TODO: в другой модуль
 BOOL GetRegistryValueAndType(Rule* rule) {
     HKEY hKey;
     DWORD type;
@@ -79,5 +80,23 @@ BOOL GetRegistryValueAndType(Rule* rule) {
     }
     else {
         return FALSE;
+    }
+}
+
+void changeData(DWORD type, HKEY rootKey, wchar_t fieldName[255], wchar_t valueData[255]) {
+    BOOL setResult;
+    if (type == REG_SZ) {
+        setResult = RegSetValueEx(rootKey, fieldName, 0, type, (const BYTE*)valueData, (lstrlen(valueData) + 1) * sizeof(wchar_t));
+    }
+    else if (type == REG_DWORD) {
+        DWORD dwValue = _wtoi(valueData);
+        setResult = RegSetValueEx(rootKey, fieldName, 0, type, (const BYTE*)&dwValue, sizeof(DWORD));
+    }
+    else if (type == REG_BINARY) {
+        BYTE binaryData[255];
+        for (int i = 0; i < lstrlen(valueData) && i < 255; i++) {
+            binaryData[i] = (BYTE)valueData[i];
+        }
+        setResult = RegSetValueEx(rootKey, fieldName, 0, type, binaryData, lstrlen(valueData));
     }
 }

@@ -130,18 +130,21 @@
   <ItemGroup>
     <ClInclude Include="Defines.h" />
     <ClInclude Include="framework.h" />
+    <ClInclude Include="GlobalVariables.h" />
     <ClInclude Include="mainControls.h" />
+    <ClInclude Include="monitorProc.h" />
     <ClInclude Include="procChooseControls.h" />
     <ClInclude Include="procChooseWindowLogic.h" />
     <ClInclude Include="procTable.h" />
-    <ClInclude Include="Rule.h" />
     <ClInclude Include="ruleTable.h" />
     <ClInclude Include="windowsLogic.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="GlobalVariables.cpp" />
     <ClCompile Include="mainControls.cpp" />
+    <ClCompile Include="monitorProc.cpp" />
     <ClCompile Include="procChooseControls.cpp" />
     <ClCompile Include="procChooseWindowLogic.cpp" />
     <ClCompile Include="procTable.cpp" />

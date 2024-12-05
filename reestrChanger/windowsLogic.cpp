@@ -4,13 +4,17 @@
 
 #include "ruleTable.h"
 #include "Defines.h"
+#include "GlobalVariables.h"
+#include "procChooseWindowLogic.h"
+#include "mainControls.h"
+#include "monitorProc.h"
 
-HINSTANCE hInst;
 HWND inpFolder, inpPath, inpValName, inpVal, choosenProg;
-HWND lvRules;
+
+LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 
 // Регистрация главного окна приложения и окна выбора процесса
-ATOM RegisterMainClass(HINSTANCE hInstance, WCHAR szWindowClass[])
+ATOM RegisterMainClass(HINSTANCE hInstance)
 {
     WNDCLASSEXW wcex;
     hInst = hInstance;
@@ -33,11 +37,11 @@ ATOM RegisterMainClass(HINSTANCE hInstance, WCHAR szWindowClass[])
 }
 
 // Создание экземпляра окна и сохранение в глобальную переменную hWnd
-BOOL InitInstance(HINSTANCE hInstance, int nCmdShow, HWND *hWnd, HINSTANCE *hInst, WCHAR szWindowClass[], WCHAR szTitle[])
+BOOL InitInstance(HINSTANCE hInstance, int nCmdShow, HWND *hWnd, HINSTANCE *hInst)
 {
     *hInst = hInstance; // Store instance handle in our global variable
 
-    *hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
+    *hWnd = CreateWindowW(szWindowClass, szMainWindowTitle, WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
 
     if (!hWnd)
@@ -90,17 +94,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         switch (wmId)
         {
         case CMD_CHOSEPROG:
-            OnButtonClicked(hWnd);
+            CreateProcChooseWindow(hWnd);
             break;
         case CMD_CREATERUL:
-            if (!CreateRule(hWnd))
-                //TODO: Обработать ошибку создания правила                   
-                break;
+            if (!CreateRule(hWnd, choosenProg, inpFolder, inpPath, inpVal, inpValName)) 
+            { //TODO: Обработать ошибку создания правила    
+            }      
+            break;
         case CMD_CHECKPROGNAME:
-            CheckWinName();
+            CheckWinName(selectedWinName, choosenProg);
             break;
         case CMD_STARTTRACKING:
-            thrMonitoring = ThrStartMonitoring();
+            ThrStartMonitoring();
             break;
         case IDM_ABOUT:
             DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);

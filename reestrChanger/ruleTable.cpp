@@ -2,10 +2,12 @@
 #include "Resource.h"
 #include <CommCtrl.h>
 
-#include "Rule.h"
+#include "GlobalVariables.h"
 #include <string>
 
-HWND lvRules;
+// Function declarations
+std::wstring TypeToStr(DWORD typeCode);
+void AddColumnsToListView(HWND lv_rules);
 
 HWND CreateLvRules(HWND hWnd) {
     lvRules = CreateWindow(WC_LISTVIEW, L"",
@@ -127,4 +129,19 @@ std::wstring TypeToStr(DWORD typeCode) {
     default:
         return L"UNKNOWN_TYPE";
     }
+}
+
+void LvUpdateActivity(int itemIndex, bool isActive) {
+    std::lock_guard<std::mutex> lock(listViewMutex);
+
+    // Подготавливаем структуру LVITEM для изменения столбца
+    LVITEM lvItem;
+    lvItem.mask = LVIF_TEXT;
+    lvItem.iItem = itemIndex;
+    lvItem.iSubItem = 7;  // Столбец с состоянием isActive
+    lvItem.pszText = isActive ? (LPWSTR)L"Да" : (LPWSTR)L"Нет";
+
+    // Обновляем значение в ListView
+    ListView_SetItem(lvRules, &lvItem);
+    UpdateWindow(lvRules);
 }

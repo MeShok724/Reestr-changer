@@ -5,17 +5,19 @@
 #include "procTable.h"
 #include "procChooseControls.h"
 #include "Defines.h"
+#include "GlobalVariables.h"
 
 HWND hWndChooseProg;
 HWND lvProc;
-WCHAR szProgWindowClass[];
-WCHAR selectedWinName[];
+
+// Function declarations
+LRESULT CALLBACK WndProcChose(HWND hProcChoseProg, UINT message, WPARAM wParam, LPARAM lParam);
+void CreateProcCooseControls(HWND hWnd);
 
 // Регистрация окна выбора процесса
-ATOM RegisterProgChooseClass(HINSTANCE hInstance, WCHAR className[])
+ATOM RegisterProgChooseClass(HINSTANCE hInstance)
 {
     WNDCLASSEXW wcex;
-    wcscpy(szProgWindowClass, className);
 
     wcex.cbSize = sizeof(WNDCLASSEX);
     wcex.style = CS_HREDRAW | CS_VREDRAW;
@@ -34,14 +36,14 @@ ATOM RegisterProgChooseClass(HINSTANCE hInstance, WCHAR className[])
 }
 
 // Создание окна со списком приложений
-HWND CreateProcCooseWindow(HWND hwnd) {
-    HWND hwndNew = CreateWindow(szProgWindowClass, L"Список приложений",
+HWND CreateProcChooseWindow(HWND hwnd) {
+    HWND hwndNew = CreateWindow(szProgWindowClass, szProcChooseTitle,
         WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT, 500, 500,
         hwnd, NULL, NULL, NULL);
 
     if (hwndNew == NULL) {
-        return; // TODO: обработка ошибки создания окна
+        return NULL; // TODO: обработка ошибки создания окна
     }
 
     hWndChooseProg = hwndNew;
@@ -83,15 +85,13 @@ LRESULT CALLBACK WndProcChose(HWND hProcChoseProg, UINT message, WPARAM wParam, 
     break;
     case WM_CLOSE:
     {
-        HWND hMainProg = GetParent(hProcChoseProg);
-        SendMessage(hMainProg, WM_COMMAND, CMD_CHECKPROGNAME, NULL);
+        SendMessage(hWndMainWindow, WM_COMMAND, CMD_CHECKPROGNAME, NULL);
         SendMessage(hProcChoseProg, WM_DESTROY, NULL, NULL);
     }
     break;
     case WM_DESTROY: {
-        HWND hMainProg = GetParent(hProcChoseProg);
         DestroyWindow(hProcChoseProg);
-        UpdateWindow(hMainProg);
+        UpdateWindow(hWndMainWindow);
     }
                    break;
     default:

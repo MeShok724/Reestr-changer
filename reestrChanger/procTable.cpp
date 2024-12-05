@@ -3,6 +3,9 @@
 #include <CommCtrl.h>
 #include <TlHelp32.h>
 
+// Function declarations
+void AddData(HWND hWnd);
+
 HWND CreateProcTable(HWND hWnd) {
     HWND lvProc = CreateWindow(WC_LISTVIEW, L"",
         WS_CHILD | WS_VISIBLE | LVS_REPORT | WS_BORDER,
