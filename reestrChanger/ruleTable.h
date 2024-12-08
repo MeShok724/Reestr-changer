@@ -5,3 +5,5 @@
 HWND CreateLvRules(HWND hWnd);
 void AddRuleToListView(HWND lv_rules, Rule rule);
 void LvUpdateActivity(int itemIndex, bool isActive);
+void LvApdateData();
+void DeleteSelectedRule();

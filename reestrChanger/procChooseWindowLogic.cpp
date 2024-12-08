@@ -93,7 +93,7 @@ LRESULT CALLBACK WndProcChose(HWND hProcChoseProg, UINT message, WPARAM wParam, 
         DestroyWindow(hProcChoseProg);
         UpdateWindow(hWndMainWindow);
     }
-                   break;
+    break;
     default:
         return DefWindowProc(hProcChoseProg, message, wParam, lParam);
     }

@@ -145,3 +145,39 @@ void LvUpdateActivity(int itemIndex, bool isActive) {
     ListView_SetItem(lvRules, &lvItem);
     UpdateWindow(lvRules);
 }
+
+void LvApdateData() {
+    ListView_DeleteAllItems(lvRules);
+    for (Rule currRule : ruleVec) {
+        AddRuleToListView(lvRules, currRule);
+    }
+}
+
+void DeleteSelectedRule() {
+    // Получить индекс выбранного элемента
+    int selectedIndex = ListView_GetNextItem(lvRules, -1, LVNI_SELECTED);
+
+    if (selectedIndex == -1) {
+        // Нет выбранного элемента
+        MessageBox(nullptr, L"Пожалуйста, выберите элемент для удаления.", L"Ошибка", MB_OK | MB_ICONWARNING);
+        return;
+    }
+
+    // Удаляем элемент из вектора
+    {
+        std::lock_guard<std::mutex> lock(ruleVecMutex); // Если доступ к ruleVec защищен мьютексом
+        if (selectedIndex >= 0 && selectedIndex < ruleVec.size()) {
+            ruleVec.erase(ruleVec.begin() + selectedIndex);
+        }
+        else {
+            MessageBox(nullptr, L"Ошибка: индекс выбранного элемента вне диапазона.", L"Ошибка", MB_OK | MB_ICONERROR);
+            return;
+        }
+    }
+
+    // Удаляем элемент из ListView
+    ListView_DeleteItem(lvRules, selectedIndex);
+
+    // Обновить интерфейс
+    UpdateWindow(lvRules);
+}

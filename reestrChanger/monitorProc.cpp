@@ -13,6 +13,7 @@ std::atomic<bool> stopMonitoring{ true };
 
 // Function declarations
 void RuleActivityHandler(Rule& rule, bool isNowActive, int i);
+void ReturnReestrStartValues();
 
 DWORD WINAPI MonitorPrograms(LPVOID lpParam) {
 
@@ -64,6 +65,7 @@ BOOL ThrStartMonitoring() {
     if (!stopMonitoring) {
         return false; // поток уже запущен
     }
+    ruleVec;
     stopMonitoring = false;
     thrMonitoring = CreateThread(nullptr, 0, MonitorPrograms, nullptr, 0, nullptr);
     return true;
@@ -76,6 +78,8 @@ BOOL ThrStopMonitoring() {
     stopMonitoring = true;
     WaitForSingleObject(thrMonitoring, INFINITE);
     CloseHandle(thrMonitoring);
+    thrMonitoring = nullptr;
+    ReturnReestrStartValues();
     return true;
 }
 
@@ -96,12 +100,22 @@ bool UpdateRegistryValue(const Rule& rule, bool isNowActive) {
     return status == ERROR_SUCCESS;
 }
 
-void RuleActivityHandler(Rule& rule, bool isNowActive, int i) {
+void RuleActivityHandler(Rule &rule, bool isNowActive, int i) {
     if (UpdateRegistryValue(rule, isNowActive)) {
         rule.isActive = isNowActive ? TRUE : FALSE;
         LvUpdateActivity(i, rule.isActive);
     }
     else {
         // TODO: добавить обработку ошибки, если нужно
+    }
+}
+void ReturnReestrStartValues() {
+    for (int i = 0; i < ruleVec.size(); i++)
+    {
+        Rule* currRule = &ruleVec[i];
+        if (currRule->isActive) {
+            currRule->isActive = false;
+            RuleActivityHandler(*currRule, false, i);
+        }
     }
 }

@@ -2,6 +2,7 @@
 #include "Resource.h"
 
 #include "ruleTable.h"
+#include "Defines.h"
 
 #include <vector>
 
@@ -45,6 +46,17 @@ HKEY GetRootKey(HWND inpFolder) {
     }
 }
 
+// Проверка доступа на запись в реестр
+bool HasRegistryWriteAccess(HKEY keyFolder, const std::wstring& keyPath, const std::wstring& valName) {
+    HKEY hKey;
+    LSTATUS status = RegOpenKeyEx(keyFolder, keyPath.c_str(), 0, KEY_SET_VALUE, &hKey);
+    if (status == ERROR_SUCCESS) {
+        RegCloseKey(hKey);
+        return true; // Доступ на запись есть
+    }
+    return false; // Нет доступа
+}
+
 BOOL CreateRule(HWND hWnd, HWND choosenProg, HWND inpFolder, HWND inpPath, HWND inpVal, HWND inpValName) {
     Rule newRule;
     newRule.keyFolder = GetRootKey(inpFolder);
@@ -55,6 +67,12 @@ BOOL CreateRule(HWND hWnd, HWND choosenProg, HWND inpFolder, HWND inpPath, HWND 
     GetWindowText(inpValName, newRule.valName, sizeof(newRule.valName) / sizeof(wchar_t));
     if (!GetRegistryValueAndType(&newRule))
         return FALSE;
+    // Проверка доступа на запись
+    if (!HasRegistryWriteAccess(newRule.keyFolder, newRule.keyPath, newRule.valName)) {
+        MessageBox(hWnd, L"Нет доступа на изменение значения реестра. Проверьте права доступа.", L"Ошибка", MB_OK | MB_ICONERROR);
+        return FALSE;
+    }
+
     newRule.isActive = FALSE;    // TODO: правильно указать isActive
     AddRuleToListView(lvRules, newRule);
     ruleVec.push_back(newRule);
@@ -98,5 +116,16 @@ void changeData(DWORD type, HKEY rootKey, wchar_t fieldName[255], wchar_t valueD
             binaryData[i] = (BYTE)valueData[i];
         }
         setResult = RegSetValueEx(rootKey, fieldName, 0, type, binaryData, lstrlen(valueData));
+    }
+}
+
+void ChangeStartMonitoringButton(HWND button, bool isActive) {
+    if (isActive) {
+        SetWindowText(button, L"Перестать отслеживать");
+        SetWindowLongPtr(button, GWLP_ID, (LONG_PTR)CMD_STOPTRACKING);
+    }
+    else {
+        SetWindowText(button, L"Начать отслеживание");
+        SetWindowLongPtr(button, GWLP_ID, (LONG_PTR)CMD_STARTTRACKING);
     }
 }

@@ -2,6 +2,8 @@
 #include "Resource.h"
 #include <CommCtrl.h>
 #include <TlHelp32.h>
+#include <set>
+#include <string>
 
 // Function declarations
 void AddData(HWND hWnd);
@@ -26,15 +28,36 @@ HWND CreateProcTable(HWND hWnd) {
 void AddData(HWND hWnd) {
     HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 
+    if (hSnapshot == INVALID_HANDLE_VALUE) {
+        MessageBox(hWnd, L"Не удалось создать снимок процессов.", L"Ошибка", MB_OK | MB_ICONERROR);
+        return;
+    }
+
     PROCESSENTRY32 pe;
     pe.dwSize = sizeof(PROCESSENTRY32);
+    std::set<std::wstring> processNames; // Используем std::set для уникальности и сортировки
+
     if (Process32First(hSnapshot, &pe)) {
         do {
-            LVITEM lvItem = { 0 };
-            lvItem.mask = LVIF_TEXT;
-            lvItem.pszText = pe.szExeFile;
-            lvItem.iItem = ListView_GetItemCount(hWnd); // следующий индекс
-            ListView_InsertItem(hWnd, &lvItem); // добавляем строку
+            processNames.insert(pe.szExeFile); // Автоматически удаляет дубликаты и сортирует
         } while (Process32Next(hSnapshot, &pe));
     }
+
+    CloseHandle(hSnapshot);
+
+    // Очищаем ListView перед добавлением новых данных
+    ListView_DeleteAllItems(hWnd);
+
+    // Добавляем уникальные и отсортированные имена процессов в ListView
+    int index = 0;
+    for (const auto& processName : processNames) {
+        LVITEM lvItem = { 0 };
+        lvItem.mask = LVIF_TEXT;
+        lvItem.pszText = const_cast<LPWSTR>(processName.c_str()); // Преобразуем const std::wstring в LPWSTR
+        lvItem.iItem = index++; // Индекс новой строки
+        ListView_InsertItem(hWnd, &lvItem);
+    }
+
+    // Обновляем окно для отображения изменений
+    UpdateWindow(hWnd);
 }

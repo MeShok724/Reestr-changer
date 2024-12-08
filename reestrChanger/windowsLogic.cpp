@@ -8,8 +8,9 @@
 #include "procChooseWindowLogic.h"
 #include "mainControls.h"
 #include "monitorProc.h"
+#include "FileLogic.h"
 
-HWND inpFolder, inpPath, inpValName, inpVal, choosenProg;
+HWND inpFolder, inpPath, inpValName, inpVal, choosenProg, monitoringButton;
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 
@@ -68,7 +69,11 @@ BOOL InitControls(HWND hwnd) {
     choosenProg = CreateWindow(L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER, 10, 240, 300, 20, hwnd, NULL, NULL, NULL);
     CreateWindow(L"BUTTON", L"Выбрать приложение", WS_VISIBLE | WS_CHILD, 10, 270, 300, 30, hwnd, (HMENU)CMD_CHOSEPROG, NULL, NULL);
     CreateWindow(L"BUTTON", L"Создать правило", WS_VISIBLE | WS_CHILD, 10, 310, 300, 30, hwnd, (HMENU)CMD_CREATERUL, NULL, NULL);
-    CreateWindow(L"BUTTON", L"Начать отслеживание", WS_VISIBLE | WS_CHILD, 10, 500, 300, 30, hwnd, (HMENU)CMD_STARTTRACKING, NULL, NULL);
+
+    CreateWindow(L"BUTTON", L"Удалить правило", WS_VISIBLE | WS_CHILD, 10, 380, 300, 30, hwnd, (HMENU)CMD_DELETERULE, NULL, NULL);
+    CreateWindow(L"BUTTON", L"Сохранить в файл", WS_VISIBLE | WS_CHILD, 10, 420, 300, 30, hwnd, (HMENU)CMD_SAVETOFILE, NULL, NULL);
+    CreateWindow(L"BUTTON", L"Загрузить из файла", WS_VISIBLE | WS_CHILD, 10, 460, 300, 30, hwnd, (HMENU)CMD_LOADFROMFILE, NULL, NULL);
+    monitoringButton = CreateWindow(L"BUTTON", L"Начать отслеживание", WS_VISIBLE | WS_CHILD, 10, 500, 300, 30, hwnd, (HMENU)CMD_STARTTRACKING, NULL, NULL);
 
     CreateWindow(L"STATIC", L"Список правил:", WS_CHILD | WS_VISIBLE, 400, 20, 150, 20, hwnd, NULL, NULL, NULL);
     
@@ -97,6 +102,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             CreateProcChooseWindow(hWnd);
             break;
         case CMD_CREATERUL:
+            ThrStopMonitoring();
+            ChangeStartMonitoringButton(monitoringButton, false);
             if (!CreateRule(hWnd, choosenProg, inpFolder, inpPath, inpVal, inpValName)) 
             { //TODO: Обработать ошибку создания правила    
             }      
@@ -106,6 +113,25 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             break;
         case CMD_STARTTRACKING:
             ThrStartMonitoring();
+            ChangeStartMonitoringButton(monitoringButton, true);
+            break;
+        case CMD_STOPTRACKING:
+            ThrStopMonitoring();
+            ChangeStartMonitoringButton(monitoringButton, false);
+            break;
+        case CMD_SAVETOFILE:
+            SaveRulesToFile();
+            break;
+        case CMD_LOADFROMFILE:
+            ThrStopMonitoring();
+            ChangeStartMonitoringButton(monitoringButton, false);
+            LoadRulesFromFile();
+            LvApdateData();
+            break;
+        case CMD_DELETERULE:
+            ThrStopMonitoring();
+            ChangeStartMonitoringButton(monitoringButton, false);
+            DeleteSelectedRule();
             break;
         case IDM_ABOUT:
             DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
@@ -119,6 +145,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     }
     break;
     case WM_DESTROY:
+        ThrStopMonitoring();
         PostQuitMessage(0);
         break;
     default:
