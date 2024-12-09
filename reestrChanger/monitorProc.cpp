@@ -105,9 +105,6 @@ void RuleActivityHandler(Rule &rule, bool isNowActive, int i) {
         rule.isActive = isNowActive ? TRUE : FALSE;
         LvUpdateActivity(i, rule.isActive);
     }
-    else {
-        // TODO: добавить обработку ошибки, если нужно
-    }
 }
 void ReturnReestrStartValues() {
     for (int i = 0; i < ruleVec.size(); i++)

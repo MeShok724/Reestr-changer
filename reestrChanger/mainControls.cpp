@@ -60,20 +60,23 @@ bool HasRegistryWriteAccess(HKEY keyFolder, const std::wstring& keyPath, const s
 BOOL CreateRule(HWND hWnd, HWND choosenProg, HWND inpFolder, HWND inpPath, HWND inpVal, HWND inpValName) {
     Rule newRule;
     newRule.keyFolder = GetRootKey(inpFolder);
-    //TODO: правильно считать введенное значение опираясь на тип
     GetWindowText(choosenProg, newRule.progName, sizeof(newRule.progName) / sizeof(wchar_t));
     GetWindowText(inpPath, newRule.keyPath, sizeof(newRule.keyPath) / sizeof(wchar_t));
     GetWindowText(inpVal, newRule.newValue, sizeof(newRule.newValue) / sizeof(wchar_t));
     GetWindowText(inpValName, newRule.valName, sizeof(newRule.valName) / sizeof(wchar_t));
-    if (!GetRegistryValueAndType(&newRule))
+    if (newRule.progName[0] == L'\0') {
+        MessageBox(hWnd, L"Вы не указали программу для отслеживания.", L"Ошибка", MB_OK | MB_ICONERROR);
         return FALSE;
-    // Проверка доступа на запись
+    }
+    if (!GetRegistryValueAndType(&newRule)) {
+        MessageBox(hWnd, L"Не удалось найти указанное значение в реестре, проверьте корректность данных.", L"Ошибка", MB_OK | MB_ICONERROR);
+        return FALSE;
+    }
     if (!HasRegistryWriteAccess(newRule.keyFolder, newRule.keyPath, newRule.valName)) {
         MessageBox(hWnd, L"Нет доступа на изменение значения реестра. Проверьте права доступа.", L"Ошибка", MB_OK | MB_ICONERROR);
         return FALSE;
     }
-
-    newRule.isActive = FALSE;    // TODO: правильно указать isActive
+    newRule.isActive = FALSE;
     AddRuleToListView(lvRules, newRule);
     ruleVec.push_back(newRule);
     return TRUE;
@@ -101,7 +104,7 @@ BOOL GetRegistryValueAndType(Rule* rule) {
     }
 }
 
-void changeData(DWORD type, HKEY rootKey, wchar_t fieldName[255], wchar_t valueData[255]) {
+void ChangeData(DWORD type, HKEY rootKey, wchar_t fieldName[255], wchar_t valueData[255]) {
     BOOL setResult;
     if (type == REG_SZ) {
         setResult = RegSetValueEx(rootKey, fieldName, 0, type, (const BYTE*)valueData, (lstrlen(valueData) + 1) * sizeof(wchar_t));

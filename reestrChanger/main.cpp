@@ -58,22 +58,3 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     return (int) msg.wParam;
 }
-
-// Callback-функци€ дл€ перечислени€ окон
-//BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
-//    // ѕолучение заголовка окна
-//    wchar_t windowTitle[256];
-//    GetWindowText(hwnd, windowTitle, sizeof(windowTitle) / sizeof(wchar_t));
-//
-//    // ѕровер€ем, есть ли заголовок у окна (если пусто Ч пропускаем)
-//    if (wcslen(windowTitle) > 0) {  //  && wcscmp(windowTitle, L"Default IME") != 0 && wcscmp(windowTitle, L"") != 0
-//        // ƒобавл€ем заголовок в список (ListView)
-//        HWND listView = (HWND)lParam;
-//        LVITEM lvItem = { 0 };
-//        lvItem.mask = LVIF_TEXT;
-//        lvItem.pszText = windowTitle;
-//        lvItem.iItem = ListView_GetItemCount(listView); // следующий индекс
-//        ListView_InsertItem(listView, &lvItem); // добавл€ем строку
-//    }
-//    return TRUE; // продолжаем перечисление окон
-//}

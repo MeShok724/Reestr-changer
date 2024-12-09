@@ -104,9 +104,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         case CMD_CREATERUL:
             ThrStopMonitoring();
             ChangeStartMonitoringButton(monitoringButton, false);
-            if (!CreateRule(hWnd, choosenProg, inpFolder, inpPath, inpVal, inpValName)) 
-            { //TODO: Обработать ошибку создания правила    
-            }      
+            CreateRule(hWnd, choosenProg, inpFolder, inpPath, inpVal, inpValName);   
             break;
         case CMD_CHECKPROGNAME:
             CheckWinName(selectedWinName, choosenProg);
